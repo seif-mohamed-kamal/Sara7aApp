@@ -1,0 +1,6 @@
+Asymmetric encryption 
+    if encryption_key should send between two or more node so each one whould have public and private key
+    the first node which is the sender  
+        -have its own private key which not shared (this key use to decrypt the data)
+        -his public key shared by all nodes
+        -have the others public key to encrypt the data to send it to the node which owns that key(it will decrypt the data by its private key)
