@@ -10,4 +10,14 @@ export const NotFoundException = ({message = "Not Found" , status = 404 , extra 
     return ErrorException({message, status:404 , extra})
 };
   
-  
+export const ForbiddenException = ({message = "Forbidden Access" , status = 403 , extra = undefined } = {}) => {
+  return ErrorException({message, status:403 , extra})
+};
+
+export const BadException = ({message = "Bad Exception" , status = 400 , extra = undefined } = {}) => {
+  return ErrorException({message, status:400 , extra})
+};
+
+export const UnAuthrizedException = ({message = "Not Authrized Exception" , status = 401 , extra = undefined } = {}) => {
+  return ErrorException({message, status:401 , extra})
+};

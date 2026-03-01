@@ -4,3 +4,11 @@ Asymmetric encryption
         -have its own private key which not shared (this key use to decrypt the data)
         -his public key shared by all nodes
         -have the others public key to encrypt the data to send it to the node which owns that key(it will decrypt the data by its private key)
+
+multer (if you want to test start the index.html file by liveserver)
+    Multer is a node.js middleware for handling file upload
+    How it works
+        1-A browser sends a POST request
+        2-Multer reads the request body
+        3-Saves them either in memory or on disk 
+        4-Adds a req.file object with metadata:

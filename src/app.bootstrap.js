@@ -2,11 +2,11 @@ import { NODE_ENV, port } from "../config/config.service.js";
 import { connectDB } from "./DB/connection.db.js";
 import { authRouter, userRouter } from "./modules/index.js";
 import express from "express";
-import cors from 'cors'
+import cors from "cors";
 async function bootstrap() {
   const app = express();
   //convert buffer data
-  app.use(cors(),express.json());
+  app.use(cors(), express.json());
   //DB
   await connectDB();
   //application routing
@@ -27,6 +27,7 @@ async function bootstrap() {
         status == 500
           ? "something went wrong"
           : error.message ?? "something went wrong",
+      extra:error?.cause?.extra || undefined,
       stack: NODE_ENV == "development" ? error.stack : undefined,
     });
   });

@@ -1,4 +1,5 @@
 import {
+  BadException,
   compareHash,
   ConflictException,
   generateDecrypt,
@@ -29,7 +30,8 @@ export const signup = async (inputs) => {
   if (checkEmail) {
     throw ConflictException({ message: "Duplicated Email" });
   }
-  const otp = Math.floor(100000 + Math.random() * 900000);
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
   await sendOTP(email, otp);
 
   const user = await createOne({
@@ -41,6 +43,8 @@ export const signup = async (inputs) => {
       role,
       password: await generateHash({ plainText: password }),
       phone: await generateEncrypt(phone),
+      otp,
+      otpExpiresAt,
     },
   });
 
@@ -142,4 +146,27 @@ export const loginWithGmail = async (idToken, issuer) => {
   }
 
   return await createLoginCreadintials(user, issuer);
+};
+
+
+export const verifyEmailOTP = async (email, otp) => {
+  const user = await findOne({
+    model: usermodel,
+    filter: { email },
+  });
+
+  if (!user) throw NotFoundException({message:"User not found"});
+
+  if (!user.otp) throw NotFoundException({message:"OTP not found"});
+
+  if (user.otpExpiresAt < new Date()) throw BadException({message:"OTP Expired"});
+
+  if (user.otp !== otp) throw BadException({message:"Invalid OTP"});
+
+  user.activated = true;
+
+  user.otp = null;
+  user.otpExpiresAt = null;
+  await user.save();
+  return true;
 };

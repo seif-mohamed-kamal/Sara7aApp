@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
-import { genderEnum, providerEnum, roleEnum } from "../../common/enums/index.js";
+import {
+  genderEnum,
+  providerEnum,
+  roleEnum,
+} from "../../common/enums/index.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -29,11 +33,11 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: function(){
-        return this.provider == providerEnum.system
+      required: function () {
+        return this.provider == providerEnum.system;
       },
     },
-
+    age: Number,
     phone: String,
 
     gender: {
@@ -42,10 +46,10 @@ const userSchema = new mongoose.Schema(
       default: genderEnum.Male,
     },
 
-    role:{
-      type:Number,
-      enum:Object.values(roleEnum),
-      default:roleEnum.user
+    role: {
+      type: Number,
+      enum: Object.values(roleEnum),
+      default: roleEnum.user,
     },
     provider: {
       type: Number,
@@ -58,6 +62,10 @@ const userSchema = new mongoose.Schema(
 
     confirmEmail: Date,
     changeCredentialsTime: Date,
+    otp: String,
+
+    otpExpiresAt: Date,
+    activated: { type: Boolean, default: false },
   },
   {
     collection: "Route_users",

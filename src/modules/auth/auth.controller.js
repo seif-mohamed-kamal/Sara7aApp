@@ -1,9 +1,11 @@
 import { Router } from "express";
-import { login, signup, signupWithGmail } from "./auth.service.js";
-import { successResponse } from "../../common/utils/index.js";
+import { login, signup, signupWithGmail, verifyEmailOTP } from "./auth.service.js";
+import { BadException, successResponse } from "../../common/utils/index.js";
+import { validation } from "../../middleware/validatio.miidleware.js";
+import { loginSchema, signupSchema } from "./auth.validation.js";
 const router = Router();
 
-router.post("/signup", async (req, res, next) => {
+router.post("/signup",validation(signupSchema), async (req, res, next) => {
   const result = await signup(req.body);
   return successResponse({ res, status: 201, data: result });
 });
@@ -14,11 +16,17 @@ router.post("/signup/gmail", async (req, res, next) => {
 });
 
 
-router.post("/login", async (req, res, next) => {
+router.post("/login",validation(loginSchema), async (req, res, next) => {
   const result = await login(req.body ,`${req.protocol}://${req.host}`);
   return successResponse({ res, status: 200, data: result });
 });
 
+
+router.post("/validate-otp", async (req, res, next) => {
+  const{email , otp} = req.body
+  const result = await verifyEmailOTP(email , otp);
+  return successResponse({ res, status: 200, data: result });
+});
 
 
 export default router;
