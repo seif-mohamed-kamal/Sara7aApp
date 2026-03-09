@@ -7,3 +7,8 @@ export const TokenTypeEnum = {
   access: 0,
   refresh: 1,
 };
+
+export const logoutEnum = {
+  All: 0,
+  one: 1,
+};

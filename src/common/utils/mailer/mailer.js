@@ -9,13 +9,23 @@ export const transporter = nodemailer.createTransport({
   },
 });
 
-export const sendOTP = async (email, otp) => {
+export const sendEmail = async ({
+  to,
+  cc,
+  bcc,
+  subject,
+  html,
+  attachments = [],
+} = {}) => {
   try {
     const info = await transporter.sendMail({
-      from: APP_GMAIL,
-      to: email,
-      subject: "Your OTP Code",
-      text: `Your OTP code is ${otp}`,
+      from: `SARA7A APP ❤️`,
+      to,
+      cc,
+      bcc,
+      subject,
+      html,
+      attachments,
     });
 
     console.log("Email sent:", info.response);

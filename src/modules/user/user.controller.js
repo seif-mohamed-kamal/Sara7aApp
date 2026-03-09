@@ -1,15 +1,16 @@
 import { Router } from "express";
-import { profile, rotateToken, uploadImg } from "./user.service.js";
-import { successResponse } from "../../common/utils/index.js";
+import { coverImg, logout, profile, profileImg, rotateToken } from "./user.service.js";
+import { localFileUpload, successResponse } from "../../common/utils/index.js";
+import { TokenTypeEnum } from "../../common/enums/index.js";
+import { endpoint } from "./user.authrize.js";
 import {
   authintication,
   authrization,
-} from "../../middleware/auth.middleware.js";
-import { TokenTypeEnum } from "../../common/enums/security.enum.js";
-import { endpoint } from "./user.authrize.js";
-import multer from "multer";
-import { upload } from "../../middleware/multer.miidleware.js";
-const router = Router()
+  validation,
+} from "../../middleware/index.js";
+import { fileExtention } from "../../common/utils/multer/validatio.multer.js";
+import { coverSchema, profileSchema } from "./user.validation.js";
+const router = Router();
 
 router.get(
   "/",
@@ -26,14 +27,39 @@ router.get(
   "/rotate-token",
   authintication({ tokenType: TokenTypeEnum.refresh }),
   async (req, res, next) => {
-    const result = await rotateToken(req.user, `${req.protocol}://${req.host}`);
+    const result = await rotateToken(req.user, `${req.protocol}://${req.host}`, req.decoded);
     return successResponse({ res, status: 200, data: result });
   }
 );
 
-router.post("/upload-img/:id",upload.single("file"),async (req, res, next) => {
-  const id = req.params.id
-  const result = await uploadImg(id, req.file);
+router.patch(
+  "/upload/profile-picture",
+  authintication(),
+  localFileUpload({
+    folderName: "profileImg",
+    validation: fileExtention.image,
+  }).single("file"),
+  validation(profileSchema),
+  async (req, res, next) => {
+    const result = await profileImg(req.file, req.user);
+    return successResponse({
+      res,
+      status: 200,
+      data: req.file,
+    });
+  }
+);
+
+router.patch(
+  "/upload/cover-picture",
+  authintication(),
+  localFileUpload({
+    folderName: "coverImg",
+    validation: fileExtention.image,
+  }).array("files"),
+  validation(coverSchema),
+  async (req, res, next) => {
+    const result = await coverImg(req.files, req.user);
     return successResponse({
       res,
       status: 200,
@@ -41,5 +67,12 @@ router.post("/upload-img/:id",upload.single("file"),async (req, res, next) => {
     });
   }
 );
+
+router.post("/logout", authintication(), async (req, res, next) => {
+  const { flag } = req.body;
+  // console.log(req.user.sub)
+  const result = await logout(flag, req.user, req.decoded);
+  return successResponse({ res, status: result });
+});
 
 export default router;

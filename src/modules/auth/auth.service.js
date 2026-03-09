@@ -6,7 +6,8 @@ import {
   generateEncrypt,
   generateHash,
   NotFoundException,
-  sendOTP,
+  sendEmail,
+  otpEmailTemplate,
 } from "../../common/utils/index.js";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
@@ -19,6 +20,7 @@ import {
 } from "../../../config/config.service.js";
 import { createLoginCreadintials } from "../../common/utils/security/token.security.js";
 import { providerEnum } from "../../common/enums/user.enum.js";
+import { allKeysByPrefix, deleteKey, get, redisOtp, set } from "../../common/service/redis.service.js";
 
 export const signup = async (inputs) => {
   const { firstName, lastName, email, password, phone, role } = inputs;
@@ -31,8 +33,6 @@ export const signup = async (inputs) => {
     throw ConflictException({ message: "Duplicated Email" });
   }
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
-  await sendOTP(email, otp);
 
   const user = await createOne({
     model: usermodel,
@@ -43,12 +43,48 @@ export const signup = async (inputs) => {
       role,
       password: await generateHash({ plainText: password }),
       phone: await generateEncrypt(phone),
-      otp,
-      otpExpiresAt,
+    },
+  });
+  await sendEmail({
+    to: email,
+    cc: email,
+    subject: "Your OTP Code",
+    html: otpEmailTemplate({ otp, subject: "Your OTP Code" }),
+  });
+  const hashOtp = await generateHash({ plainText: otp });
+  await set(redisOtp(email), hashOtp, 120);
+  return user;
+};
+
+export const verifyEmailOTP = async (email, otp) => {
+  const user = await findOne({
+    model: usermodel,
+    filter: {
+      email,
+      confirmEmail: { $exists: false },
+      provider: providerEnum.system,
     },
   });
 
-  return user;
+  if (!user) {
+    throw NotFoundException({
+      message: "user not found or you elready vetified your account",
+    });
+  }
+
+  const hashOtp = await get(redisOtp(user.email));
+  if (!hashOtp) {
+    throw NotFoundException({ message: "OTP Expired" });
+  }
+
+  if (!(await compareHash({ plainText: otp, cipherText: hashOtp }))) {
+    throw ConflictException({ message: "Invalid OTP" });
+  }
+
+  user.confirmEmail = new Date();
+  await user.save();
+  await deleteKey(await allKeysByPrefix(redisOtp(email)));
+  return true;
 };
 
 export const login = async (inputs, issuer) => {
@@ -140,33 +176,10 @@ export const loginWithGmail = async (idToken, issuer) => {
     model: usermodel,
     filter: { email: payload.email, provider: providerEnum.google },
   });
-  console.log(user)
+  console.log(user);
   if (!user) {
     throw new NotFoundException({ message: "user Not registred" });
   }
 
   return await createLoginCreadintials(user, issuer);
-};
-
-
-export const verifyEmailOTP = async (email, otp) => {
-  const user = await findOne({
-    model: usermodel,
-    filter: { email },
-  });
-
-  if (!user) throw NotFoundException({message:"User not found"});
-
-  if (!user.otp) throw NotFoundException({message:"OTP not found"});
-
-  if (user.otpExpiresAt < new Date()) throw BadException({message:"OTP Expired"});
-
-  if (user.otp !== otp) throw BadException({message:"Invalid OTP"});
-
-  user.activated = true;
-
-  user.otp = null;
-  user.otpExpiresAt = null;
-  await user.save();
-  return true;
 };

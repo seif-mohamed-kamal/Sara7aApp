@@ -7,7 +7,10 @@ export const authintication = ({ tokenType = TokenTypeEnum.access } = {}) => {
   return async (req, res, next) => {
     const { authorization } = req.headers;
     const [schema, creqdintials] = authorization.split(" ");
-    req.user = await decodeToken({ token: creqdintials, tokenType });
+    const {user , decodedToken} = await decodeToken({ token: creqdintials, tokenType });
+    req.user = user,
+    req.decoded = decodedToken
+    // console.log({user , decodedToken})
     next();
   };
 };
