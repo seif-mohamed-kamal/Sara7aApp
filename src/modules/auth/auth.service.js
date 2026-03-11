@@ -20,7 +20,59 @@ import {
 } from "../../../config/config.service.js";
 import { createLoginCreadintials } from "../../common/utils/security/token.security.js";
 import { providerEnum } from "../../common/enums/user.enum.js";
-import { allKeysByPrefix, deleteKey, get, redisOtp, set } from "../../common/service/redis.service.js";
+import {
+  allKeysByPrefix,
+  blockUser,
+  deleteKey,
+  get,
+  incr,
+  maxAttemptOtp,
+  redisOtp,
+  set,
+  ttl,
+} from "../../common/service/index.js";
+import { emailEnum } from "../../common/enums/email.enum.js";
+import { emitEmail } from "../../common/utils/mailer/event.mailer.js";
+
+const sendEmailOtp = async ({ email, subject }) => {
+  const isOtpExists = await get(redisOtp({ email, subject }));
+  if (isOtpExists) {
+    throw BadException({
+      message: `sorry you already have an OTP please check your email`,
+    });
+  }
+
+  const isBlockedTTL = await ttl(blockUser({ email, subject }));
+  if (blockUser > 0) {
+    throw BadException({
+      message: `sorry you are blocked please try again after ${isBlockedTTL}`,
+    });
+  }
+
+  const maxTrails = await get(maxAttemptOtp({ email, subject }));
+  console.log({ maxTrails });
+  if (maxTrails >= 3) {
+    await set(blockUser({ email, subject }), 1, 5 * 60);
+    throw BadException({
+      message: `sorry you reached the max trials please try again after 5 minutes`,
+    });
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  emitEmail.emit("sendEmail", async () => {
+    await sendEmail({
+      to: email,
+      cc: email,
+      subject,
+      html: otpEmailTemplate({ otp, subject }),
+    });
+    await incr(maxAttemptOtp({ email, subject }));
+  });
+
+  const hashOtp = await generateHash({ plainText: otp });
+  await set(redisOtp({ email, subject }), hashOtp, 120);
+};
 
 export const signup = async (inputs) => {
   const { firstName, lastName, email, password, phone, role } = inputs;
@@ -45,18 +97,13 @@ export const signup = async (inputs) => {
       phone: await generateEncrypt(phone),
     },
   });
-  await sendEmail({
-    to: email,
-    cc: email,
-    subject: "Your OTP Code",
-    html: otpEmailTemplate({ otp, subject: "Your OTP Code" }),
-  });
-  const hashOtp = await generateHash({ plainText: otp });
-  await set(redisOtp(email), hashOtp, 120);
+  await sendEmailOtp({ email, subject: emailEnum.confirmEmail });
+  await set(maxAttemptOtp({ email }), 0, 360);
+
   return user;
 };
 
-export const verifyEmailOTP = async (email, otp) => {
+export const cofirmEmail = async (email, otp) => {
   const user = await findOne({
     model: usermodel,
     filter: {
@@ -72,7 +119,7 @@ export const verifyEmailOTP = async (email, otp) => {
     });
   }
 
-  const hashOtp = await get(redisOtp(user.email));
+  const hashOtp = await get(redisOtp({ email }));
   if (!hashOtp) {
     throw NotFoundException({ message: "OTP Expired" });
   }
@@ -83,7 +130,27 @@ export const verifyEmailOTP = async (email, otp) => {
 
   user.confirmEmail = new Date();
   await user.save();
-  await deleteKey(await allKeysByPrefix(redisOtp(email)));
+  await deleteKey(await allKeysByPrefix(redisOtp({ email })));
+  return true;
+};
+
+export const resendConfirmEmail = async (email) => {
+  const user = await findOne({
+    model: usermodel,
+    filter: {
+      email,
+      confirmEmail: { $exists: false },
+      provider: providerEnum.system,
+    },
+  });
+
+  if (!user) {
+    throw NotFoundException({
+      message: "user not found or you elready vetified your account",
+    });
+  }
+  await sendEmailOtp({ email, subject: emailEnum.confirmEmail });
+
   return true;
 };
 
