@@ -51,6 +51,10 @@ const userSchema = new mongoose.Schema(
       enum: Object.values(roleEnum),
       default: roleEnum.user,
     },
+    visited: {
+      type: Number,
+      default:0,
+    },
     provider: {
       type: Number,
       enum: Object.values(providerEnum),
@@ -59,6 +63,8 @@ const userSchema = new mongoose.Schema(
 
     profilePicture: String,
     coverProfilePicture: [String],
+    galary: [String],
+
 
     confirmEmail: Date,
     changeCredentialsTime: Date,

@@ -4,6 +4,7 @@ import {
   JWT_SECRET_ADMIN,
   JWT_SECRET_ADMIN_refresh,
   JWT_SECRET_refresh,
+  JWT_SECRET_RESET,
 } from "../../../../config/config.service.js";
 import { randomUUID } from "node:crypto";
 import { findOne } from "../../../DB/DB.repositry.js";
@@ -37,6 +38,7 @@ export const detictRole = async (role) => {
       signatures = {
         accessSignature: JWT_SECRET_ADMIN,
         refreshSignature: JWT_SECRET_ADMIN_refresh,
+        resetsignature: JWT_SECRET_RESET,
       };
       break;
 
@@ -44,6 +46,7 @@ export const detictRole = async (role) => {
       signatures = {
         accessSignature: JWT_SECRET,
         refreshSignature: JWT_SECRET_refresh,
+        resetsignature: JWT_SECRET_RESET,
       };
       break;
   }
@@ -56,12 +59,15 @@ export const generateTokenSignature = async ({
   level,
 } = {}) => {
   const { signatures } = await detictRole(level);
-  const { accessSignature, refreshSignature } = signatures;
+  const { accessSignature, refreshSignature, resetsignature } = signatures;
   // console.log({accessSignature,refreshSignature})
   let signature = undefined;
   switch (tokenType) {
     case TokenTypeEnum.refresh:
       signature = refreshSignature;
+      break;
+    case TokenTypeEnum.reset:
+      signature = resetsignature;
       break;
     default:
       signature = accessSignature;
@@ -104,6 +110,7 @@ export const decodeToken = async ({
   if (!user) {
     throw NotFoundException({ message: "user not found" });
   }
+
   if (
     user.changeCredentialsTime &&
     user.changeCredentialsTime.getTime() > decodedToken.iat * 1000
@@ -113,7 +120,20 @@ export const decodeToken = async ({
   return { user, decodedToken };
 };
 
-export const createLoginCreadintials = async (user, issuer) => {
+export const createLoginCreadintials = async (user, issuer, tokenType) => {
+  if (tokenType == TokenTypeEnum.reset) {
+    const jwtid = randomUUID();
+    const token = await generateToken({
+      payload: { sub: user._id },
+      secret: JWT_SECRET_RESET,
+      option: {
+        audience: [TokenTypeEnum.reset, user.role],
+        expiresIn: 60 * 15,
+        jwtid,
+      },
+    });
+    return token;
+  }
   const { signatures } = await detictRole(user.role);
   const { accessSignature, refreshSignature } = signatures;
   const jwtid = randomUUID();
@@ -141,6 +161,3 @@ export const createLoginCreadintials = async (user, issuer) => {
 
   return { Access_Token, Refresh_Token };
 };
-/*
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OWFkZDRhMTgyMWU5OTY1YjFjOWZjMDEiLCJpYXQiOjE3NzMwMDA0ODgsImV4cCI6MTc3MzAwMjI4OCwiYXVkIjpbMCwxXSwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDozMDAwIiwianRpIjoiN2MyMTUzOGEtMTYzZi00YTY2LWJmNGUtZWZiMTI5YjU2ZTM1In0.X5NIxMGnbeQN4r_Cp9uvNlAkZwWdBWvR_HSgcAqIqNk
-*/

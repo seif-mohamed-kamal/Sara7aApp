@@ -12,6 +12,15 @@ export const baseRevokeTokenKey = (userId) => {
   return `user:RevokeToken:${userId}`;
 };
 
+export const resetTokenKey = (email) => {
+  return `user:resetToken:${email}`;
+};
+
+export const unconfirmedUser = (email) => {
+  return `user:unconfirmedUser:${email}`;
+};
+
+
 export const revokeTokenKey = ({ userId, jti } = {}) => {
   return `${baseRevokeTokenKey(userId)}:${jti}`;
 };
@@ -26,6 +35,10 @@ export const maxAttemptOtp = ({ email, subject = emailEnum.confirmEmail }) => {
 
 export const blockUser = ({ email, subject = emailEnum.confirmEmail }) => {
   return `${redisOtp({ email, subject })}:blockUser`;
+};
+
+export const maxAttemplogin = ({ email, subject = emailEnum.loginAttempt }) => {
+  return `${redisOtp({ email, subject })}:maxAttempt`;
 };
 
 export const set = async (key, value, ttl) => {

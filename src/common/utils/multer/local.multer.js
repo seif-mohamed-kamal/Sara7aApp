@@ -29,4 +29,4 @@ export const localFileUpload = ({
     storage,
     limits:{fileSize: maxSize * 1024 * 1024},
   });
-};
+};  

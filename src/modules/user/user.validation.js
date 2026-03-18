@@ -1,5 +1,6 @@
 import joi from "joi";
 import { fileExtention } from "../../common/utils/multer/validatio.multer.js";
+import { generalValidationFeild } from "../../common/utils/validation.js";
 
 export const profileSchema = {
   file: joi
@@ -46,4 +47,14 @@ export const coverSchema = {
     .min(1)
     .max(3)
     .required(),
+};
+
+export const updatePasswordSchema = {
+  body: joi.object().keys({
+    oldPassword: generalValidationFeild.password.required(),
+    newPassword: generalValidationFeild.password
+      .not(joi.ref("oldPassword"))
+      .required(),
+    confirmPassword: generalValidationFeild.confirmPassword("newPassword"),
+  }),
 };

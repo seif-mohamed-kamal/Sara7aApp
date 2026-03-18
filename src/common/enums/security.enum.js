@@ -6,6 +6,7 @@ export const hashAbroachEnum = {
 export const TokenTypeEnum = {
   access: 0,
   refresh: 1,
+  reset:2,
 };
 
 export const logoutEnum = {

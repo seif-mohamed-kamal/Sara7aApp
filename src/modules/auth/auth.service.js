@@ -8,33 +8,42 @@ import {
   NotFoundException,
   sendEmail,
   otpEmailTemplate,
+  UnAuthrizedException,
 } from "../../common/utils/index.js";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 
-import { create, createOne, findOne } from "../../DB/DB.repositry.js";
+import {
+  create,
+  createOne,
+  findOne,
+  findOneAndUpdate,
+  updateOne,
+} from "../../DB/DB.repositry.js";
 import { usermodel } from "../../DB/model/user.model.js";
 import {
   JWT_SECRET,
   JWT_SECRET_ADMIN,
 } from "../../../config/config.service.js";
 import { createLoginCreadintials } from "../../common/utils/security/token.security.js";
-import { providerEnum } from "../../common/enums/user.enum.js";
+import { providerEnum, roleEnum } from "../../common/enums/user.enum.js";
 import {
   allKeysByPrefix,
   blockUser,
   deleteKey,
   get,
   incr,
+  maxAttemplogin,
   maxAttemptOtp,
   redisOtp,
   set,
   ttl,
+  unconfirmedUser,
 } from "../../common/service/index.js";
 import { emailEnum } from "../../common/enums/email.enum.js";
 import { emitEmail } from "../../common/utils/mailer/event.mailer.js";
 
-const sendEmailOtp = async ({ email, subject }) => {
+export const sendEmailOtp = async ({ email, subject }) => {
   const isOtpExists = await get(redisOtp({ email, subject }));
   if (isOtpExists) {
     throw BadException({
@@ -50,7 +59,7 @@ const sendEmailOtp = async ({ email, subject }) => {
   }
 
   const maxTrails = await get(maxAttemptOtp({ email, subject }));
-  console.log({ maxTrails });
+  // console.log({ maxTrails });
   if (maxTrails >= 3) {
     await set(blockUser({ email, subject }), 1, 5 * 60);
     throw BadException({
@@ -75,7 +84,15 @@ const sendEmailOtp = async ({ email, subject }) => {
 };
 
 export const signup = async (inputs) => {
-  const { firstName, lastName, email, password, phone, role } = inputs;
+  const {
+    firstName,
+    lastName,
+    email,
+    password,
+    phone,
+    role,
+    two_step_verefication,
+  } = inputs;
 
   const checkEmail = await findOne({
     model: usermodel,
@@ -84,7 +101,6 @@ export const signup = async (inputs) => {
   if (checkEmail) {
     throw ConflictException({ message: "Duplicated Email" });
   }
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
   const user = await createOne({
     model: usermodel,
@@ -97,9 +113,14 @@ export const signup = async (inputs) => {
       phone: await generateEncrypt(phone),
     },
   });
-  await sendEmailOtp({ email, subject: emailEnum.confirmEmail });
-  await set(maxAttemptOtp({ email }), 0, 360);
-
+  if (two_step_verefication) {
+    user.confirmEmail = new Date();
+    await user.save();
+  } else {
+    await sendEmailOtp({ email, subject: emailEnum.confirmEmail });
+    await set(maxAttemptOtp({ email }), 0, 360);
+  }
+  await set(unconfirmedUser(email), 1, 60 * 60 * 24);
   return user;
 };
 
@@ -154,20 +175,151 @@ export const resendConfirmEmail = async (email) => {
   return true;
 };
 
+export const forgetPassword = async (inputs) => {
+  const { email } = inputs;
+  const user = await findOne({
+    model: usermodel,
+    filter: {
+      email,
+      confirmEmail: { $exists: true },
+      provider: providerEnum.system,
+    },
+  });
+
+  if (!user) {
+    throw NotFoundException({
+      message: "user not found",
+    });
+  }
+  if (
+    !(await get(maxAttemptOtp({ email, subject: emailEnum.forgetPassword })))
+  ) {
+    await set(
+      maxAttemptOtp({ email, subject: emailEnum.forgetPassword }),
+      0,
+      360
+    );
+  }
+  await sendEmailOtp({ email, subject: emailEnum.forgetPassword });
+
+  return true;
+};
+
+export const verifyForgetPasswordOtp = async (inputs) => {
+  const { otp, email } = inputs;
+  const user = await findOne({
+    model: usermodel,
+    filter: {
+      email,
+      confirmEmail: { $exists: true },
+      provider: providerEnum.system,
+    },
+  });
+
+  if (!user) {
+    throw NotFoundException({
+      message: "user not found or you elready vetified your account",
+    });
+  }
+
+  const hashOtp = await get(
+    redisOtp({ email, subject: emailEnum.forgetPassword })
+  );
+  if (!hashOtp) {
+    throw NotFoundException({ message: "OTP Expired" });
+  }
+
+  if (!(await compareHash({ plainText: otp, cipherText: hashOtp }))) {
+    throw ConflictException({ message: "Invalid OTP" });
+  }
+
+  return true;
+};
+
+export const resetPassword = async (inputs) => {
+  const { otp, email, password } = inputs;
+
+  await verifyForgetPasswordOtp({ otp, email });
+
+  const user = await updateOne({
+    model: usermodel,
+    filter: {
+      email,
+      confirmEmail: { $exists: true },
+      provider: providerEnum.system,
+    },
+    update: {
+      password: await generateHash({ plainText: password }),
+      changeCredentialsTime: new Date(),
+    },
+  });
+  // console.log({ user : user.password });
+  console.log({ usercont: user.matchedCount });
+  if (!user.matchedCount) {
+    throw NotFoundException({ message: "User Not Found" });
+  }
+  const tokenKeys = await allKeysByPrefix(
+    redisOtp({ email, subject: emailEnum.forgetPassword })
+  );
+  await deleteKey(tokenKeys);
+  return true;
+};
+
 export const login = async (inputs, issuer) => {
   const { email, password } = inputs;
   const user = await findOne({
     model: usermodel,
-    filter: { email },
+    filter: {
+      email,
+      confirmEmail: { $exists: true },
+      provider: providerEnum.system,
+    },
   });
   if (!user) {
     throw NotFoundException({ message: "Invalid login credintials" });
   }
+
+  const isBlockedTTL = await ttl(
+    blockUser({ email, subject: emailEnum.loginAttempt })
+  );
+  if (blockUser > 0) {
+    throw BadException({
+      message: `sorry you are blocked please try again after ${isBlockedTTL}`,
+    });
+  }
+
+  if (
+    !(await get(maxAttemplogin({ email, subject: emailEnum.loginAttempt })))
+  ) {
+    await set(
+      maxAttemplogin({ email, subject: emailEnum.loginAttempt }),
+      0,
+      600
+    );
+  }
+
+  const maxTrails = await get(
+    maxAttemplogin({ email, subject: emailEnum.loginAttempt })
+  );
+  // console.log({ maxTrails });
+  if (maxTrails >= 5) {
+    await set(blockUser({ email, subject: emailEnum.loginAttempt }), 1, 5 * 60);
+    throw BadException({
+      message: `sorry you reached the max trials please try again after 5 minutes`,
+    });
+  }
+
   if (
     !(await compareHash({ plainText: password, cipherText: user.password }))
   ) {
+    await incr(maxAttemplogin({ email, subject: emailEnum.loginAttempt }));
     throw NotFoundException({ message: "Invalid login credintials" });
   }
+  const maxAttemp = await allKeysByPrefix(
+    maxAttemplogin({ email, subject: emailEnum.loginAttempt })
+  );
+
+  await deleteKey(maxAttemp);
   return await createLoginCreadintials(user, issuer);
 };
 
