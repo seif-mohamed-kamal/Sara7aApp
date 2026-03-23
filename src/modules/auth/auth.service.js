@@ -119,8 +119,8 @@ export const signup = async (inputs) => {
   } else {
     await sendEmailOtp({ email, subject: emailEnum.confirmEmail });
     await set(maxAttemptOtp({ email }), 0, 360);
+    await set(unconfirmedUser(email), 1, 60 * 60 * 24);
   }
-  await set(unconfirmedUser(email), 1, 60 * 60 * 24);
   return user;
 };
 
@@ -152,6 +152,8 @@ export const cofirmEmail = async (email, otp) => {
   user.confirmEmail = new Date();
   await user.save();
   await deleteKey(await allKeysByPrefix(redisOtp({ email })));
+  await deleteKey(await allKeysByPrefix(unconfirmedUser(email)));
+
   return true;
 };
 

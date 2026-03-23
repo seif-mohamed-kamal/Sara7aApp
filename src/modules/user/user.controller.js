@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   coverImg,
+  deleteUnconfirmedUsers,
   forgetPassword,
   logout,
   profile,
@@ -126,6 +127,19 @@ router.patch(
       res,
       status: 200,
       data: result,
+    });
+  }
+);
+
+router.patch(
+  "/delete-unconfirmed-users",
+  authintication(),
+  async (req, res, next) => {
+    const result = await deleteUnconfirmedUsers()
+    return successResponse({
+      res,
+      status: 200,
+      data: {result},
     });
   }
 );

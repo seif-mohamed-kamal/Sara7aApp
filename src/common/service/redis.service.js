@@ -17,9 +17,12 @@ export const resetTokenKey = (email) => {
 };
 
 export const unconfirmedUser = (email) => {
-  return `user:unconfirmedUser:${email}`;
+  return `${baseUnconfirmedUser()}:${email}`;
 };
 
+export const baseUnconfirmedUser = () => {
+  return 'user:unconfirmedUser';
+};
 
 export const revokeTokenKey = ({ userId, jti } = {}) => {
   return `${baseRevokeTokenKey(userId)}:${jti}`;
@@ -110,6 +113,15 @@ export const ttl = async (key) => {
     return await redisClient.ttl(key);
   } catch (error) {
     console.error("Redis TTL error:", error);
+    return -2;
+  }
+};
+
+export const exists = async (key) => {
+  try {
+    return await redisClient.exists(key);
+  } catch (error) {
+    console.error("Redis exists error:", error);
     return -2;
   }
 };

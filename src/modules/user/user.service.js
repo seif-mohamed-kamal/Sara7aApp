@@ -14,7 +14,12 @@ import {
   decodeToken,
 } from "../../common/utils/security/token.security.js";
 import multer from "multer";
-import { createOne, deleteOne, findOne } from "../../DB/DB.repositry.js";
+import {
+  createOne,
+  deleteMany,
+  deleteOne,
+  findOne,
+} from "../../DB/DB.repositry.js";
 import { usermodel } from "../../DB/model/user.model.js";
 import { logoutEnum, TokenTypeEnum } from "../../common/enums/security.enum.js";
 import { tokenModel } from "../../DB/model/token.model.js";
@@ -30,6 +35,9 @@ import {
   set,
   resetTokenKey,
   get,
+  baseUnconfirmedUser,
+  unconfirmedUser,
+  exists,
 } from "../../common/service/redis.service.js";
 import jwt from "jsonwebtoken";
 
@@ -194,4 +202,35 @@ export const resetPasswordverify = async ({ email, token, password }) => {
   await account.save();
   await deleteKey(await allKeysByPrefix(resetTokenKey(email)));
   return account;
+};
+
+
+export const deleteUnconfirmedUsers = async () => {
+  const users = await usermodel.find({
+    confirmEmail: { $exists: false },
+  });
+
+  if (!users || users.length === 0) {
+    throw NotFoundException({
+      message: "No unconfirmed users found in DB",
+    });
+  }
+  let userDeleted = [];
+  let userStillHaveTTL = [];
+
+  for (const user of users) {
+    const key = unconfirmedUser(user.email);
+    const isExsist = await exists(key);
+    if (!isExsist) {
+      await deleteOne({
+        model: usermodel,
+        filter: { email: user.email },
+      });
+      userDeleted.push(user.email)
+    } else {
+      userStillHaveTTL.push(user.email)
+    }
+  }
+
+  return{userDeleted , userStillHaveTTL};
 };
