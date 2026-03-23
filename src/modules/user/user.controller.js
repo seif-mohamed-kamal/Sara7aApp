@@ -134,6 +134,7 @@ router.patch(
 router.patch(
   "/delete-unconfirmed-users",
   authintication(),
+  authrization(endpoint.delteUnconfrimedUser),
   async (req, res, next) => {
     const result = await deleteUnconfirmedUsers()
     return successResponse({
