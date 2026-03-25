@@ -131,7 +131,7 @@ router.patch(
   }
 );
 
-router.patch(
+router.delete(
   "/delete-unconfirmed-users",
   authintication(),
   authrization(endpoint.delteUnconfrimedUser),
