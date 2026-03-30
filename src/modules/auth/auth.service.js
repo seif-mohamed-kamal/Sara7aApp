@@ -113,7 +113,7 @@ export const signup = async (inputs) => {
       phone: await generateEncrypt(phone),
     },
   });
-  if (two_step_verefication) {
+  if (!two_step_verefication) {
     user.confirmEmail = new Date();
     await user.save();
   } else {

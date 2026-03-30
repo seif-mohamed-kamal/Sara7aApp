@@ -210,11 +210,6 @@ export const deleteUnconfirmedUsers = async () => {
     confirmEmail: { $exists: false },
   });
 
-  if (!users || users.length === 0) {
-    throw NotFoundException({
-      message: "No unconfirmed users found in DB",
-    });
-  }
   let userDeleted = [];
   let userStillHaveTTL = [];
 
