@@ -132,15 +132,9 @@ code/
 
 Each feature is isolated into its own module (auth, user, message)
 
-### MVC with Service Layer
-
-* Controller handles request and response
-* Service contains business logic
-* Model represents database structure
-
 ---
 
-## DESIGN PRINCIPLE
+## SOLID PRINCIPLE
 
 Single Responsibility Principle is applied:
 
@@ -157,14 +151,18 @@ Single Responsibility Principle is applied:
 * Redis
 * JWT
 * Multer
+* NodeMailer
+* JOI
 
 ---
 
 ## RUN PROJECT
 
 ```bash
-npm install
-npm run dev
+npm i
+npm run start:dev --------> for development
+npm run start:prod --------> for production
+
 ```
 
 ---
@@ -193,4 +191,4 @@ EMAIL_PASS=your_password
 
 ## AUTHOR
 
-Seif Mohamed
+ENG/Seif Mohamed
