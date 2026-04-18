@@ -1,4 +1,4 @@
-# SARA7A APP
+# Ghosta
 
 ## Backend RESTful API for Anonymous Messaging Platform
 
