@@ -1,4 +1,4 @@
-# HonestGhost
+# Honestify
 
 ## Backend RESTful API for Anonymous Messaging Platform
 
