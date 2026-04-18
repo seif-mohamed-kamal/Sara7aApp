@@ -6,7 +6,7 @@
 
 ## OVERVIEW
 
-Sara7a App enables users to receive anonymous messages securely with support for authentication, email verification, file uploads, and token-based security.
+Honestify enables users to receive anonymous messages securely with support for authentication, email verification, file uploads, and token-based security.
 
 The project follows a modular architecture with clear separation of concerns, making it scalable and maintainable.
 
